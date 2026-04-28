@@ -67,9 +67,9 @@ export const sharedRoomsData = [
   { id: 406, floor: 4, type: "Suite",     status: "Available",   guest: null,           checkIn: null,         checkOut: null,         rate: 299, amenities: ["Wifi","AC","TV","Coffee"], rating: null, nights: null },
 ];
 
-// ── EMPLOYEE DATA ────────────────────────────
+// ── EMPLOYEE DATA ───────────────────
 export const sharedEmployees = [
-  { id: "EMP001", name: "Jane Smith",   role: "Admin Manager",    dept: "Management",   shift: "08:00–17:00", status: "On Duty",  rating: 5, salary: 5800, joined: "2021-03-15" },
+  { id: "EMP001", name: "fatmaaaaaaaaaaa",   role: "Admin Manager",    dept: "Management",   shift: "08:00–17:00", status: "On Duty",  rating: 5, salary: 5800, joined: "2021-03-15" },
   { id: "EMP002", name: "Mark Chen",    role: "Front Desk Lead",  dept: "Front Desk",   shift: "07:00–15:00", status: "On Duty",  rating: 4, salary: 3200, joined: "2022-06-01" },
   { id: "EMP003", name: "Sara Lee",     role: "Housekeeper",      dept: "Housekeeping", shift: "06:00–14:00", status: "On Duty",  rating: 5, salary: 2800, joined: "2023-01-10" },
   { id: "EMP004", name: "Tom Harvis",   role: "Chef de Partie",   dept: "F&B",          shift: "09:00–18:00", status: "On Duty",  rating: 4, salary: 3600, joined: "2022-09-20" },

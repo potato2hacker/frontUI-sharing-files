@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { 
   Building2, 
   BarChart3, 
@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
+import { sharedEmployees } from "../data/erpData";
 
 interface SidebarProps {
   activeView: string;
@@ -40,6 +41,22 @@ const navItems = [
 
 export function Sidebar({ activeView, setActiveView, isDarkMode, toggleDarkMode }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const adminProfile = useMemo(() => {
+    const admin = sharedEmployees.find(e => e.role === "Admin Manager") ?? sharedEmployees[0];
+    const initials = admin.name
+      .split(" ")
+      .filter(Boolean)
+      .map(part => part[0].toUpperCase())
+      .slice(0, 2)
+      .join("");
+
+    return {
+      name: admin.name,
+      role: admin.role,
+      initials,
+    };
+  }, []);
 
   return (
     <aside className={`bg-white dark:bg-[#1e2128] border-r border-slate-200 dark:border-slate-700/50 flex flex-col h-full flex-shrink-0 z-20 transition-all duration-300 ${isCollapsed ? "w-20" : "w-64"}`}>
@@ -119,15 +136,15 @@ export function Sidebar({ activeView, setActiveView, isDarkMode, toggleDarkMode 
 
       {/* Admin Profile */}
       <div className={`border-t border-slate-100 dark:border-slate-700/50 transition-colors duration-200 ${isCollapsed ? "p-2" : "p-4"}`}>
-        <div className={`flex p-2 hover:bg-slate-50 dark:hover:bg-slate-700/40 rounded-lg cursor-pointer transition-colors ${isCollapsed ? "items-center justify-center" : "items-center justify-between"}`} title={isCollapsed ? "Jane Smith - Admin" : undefined}>
+        <div className={`flex p-2 hover:bg-slate-50 dark:hover:bg-slate-700/40 rounded-lg cursor-pointer transition-colors ${isCollapsed ? "items-center justify-center" : "items-center justify-between"}`} title={isCollapsed ? `${adminProfile.name} - ${adminProfile.role}` : undefined}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-cyan-100 dark:bg-cyan-900/40 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-sm border border-cyan-200 dark:border-cyan-800/50">
-              JS
+              {adminProfile.initials}
             </div>
             {!isCollapsed && (
               <div className="flex flex-col text-left">
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-none mb-1">Jane Smith</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 leading-none">Admin</span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-none mb-1">{adminProfile.name}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 leading-none">{adminProfile.role}</span>
               </div>
             )}
           </div>

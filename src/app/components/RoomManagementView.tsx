@@ -18,28 +18,11 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; bor
   Maintenance: { bg: "bg-rose-100 dark:bg-rose-500/15",   text: "text-rose-700 dark:text-rose-400",   dot: "bg-rose-500",   border: "border-rose-200 dark:border-rose-700/50" },
 };
 
-const ROOM_TYPES = ["Standard", "Deluxe", "Suite", "Penthouse"] as const;
-const FLOORS = [1, 2, 3, 4] as const;
+const ROOM_TYPES = Array.from(new Set(sharedRoomsData.map(r => r.type))).sort();
+const FLOOR_OPTIONS = Array.from(new Set(sharedRoomsData.map(r => r.floor))).sort((a, b) => a - b).map(String);
 
 // Use shared data instead of local
 const roomsData = sharedRoomsData;
-
-const occupancyTrendData = [
-  { day: "Mon", occupied: 14, available: 10 },
-  { day: "Tue", occupied: 16, available: 8 },
-  { day: "Wed", occupied: 18, available: 6 },
-  { day: "Thu", occupied: 15, available: 9 },
-  { day: "Fri", occupied: 20, available: 4 },
-  { day: "Sat", occupied: 22, available: 2 },
-  { day: "Sun", occupied: 19, available: 5 },
-];
-
-const revenueByTypeData = [
-  { type: "Standard", revenue: 2400 },
-  { type: "Deluxe",   revenue: 5800 },
-  { type: "Suite",    revenue: 8900 },
-  { type: "Penthouse",revenue: 13600 },
-];
 
 const PIE_COLORS = ["#10b981", "#06b6d4", "#f59e0b", "#f43f5e"];
 const AMENITY_ICONS: Record<string, React.ReactNode> = {
@@ -274,6 +257,42 @@ export function RoomManagementView() {
 
   const occupancyRate = Math.round((kpi.occupied / kpi.total) * 100);
 
+  const occupancyTrendData = useMemo(() => {
+    const latestCheckOut = roomsData
+      .filter(r => r.checkOut)
+      .map(r => new Date(r.checkOut!).getTime());
+    const baseDate = new Date(Math.max(Date.now(), ...(latestCheckOut.length ? latestCheckOut : [Date.now()])));
+    baseDate.setHours(0, 0, 0, 0);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(baseDate);
+      day.setDate(baseDate.getDate() - (6 - index));
+      const occupied = roomsData.filter(r => {
+        if (!r.checkIn || !r.checkOut) return r.status === "Occupied";
+        const checkIn = new Date(r.checkIn);
+        const checkOut = new Date(r.checkOut);
+        return day >= checkIn && day <= checkOut;
+      }).length;
+      return {
+        day: day.toLocaleDateString("en-US", { weekday: "short" }),
+        occupied,
+        available: roomsData.length - occupied,
+      };
+    });
+  }, []);
+
+  const revenueByTypeData = useMemo(() => {
+    const totals = new Map<string, number>();
+    const typeByRoom = new Map<string, string>(roomsData.map(r => [`Room #${r.id}`, r.type]));
+
+    roomRevenueTransactions.forEach(tx => {
+      const type = tx.linkedRef && typeByRoom.get(tx.linkedRef) ? typeByRoom.get(tx.linkedRef)! : "Unknown";
+      totals.set(type, (totals.get(type) ?? 0) + tx.amount);
+    });
+
+    return Array.from(totals, ([type, revenue]) => ({ type, revenue }));
+  }, []);
+
   // Accounting link data
   const totalRoomRevenue = roomRevenueTransactions.reduce((s, t) => s + t.amount, 0);
   const accountingEntries = roomRevenueTransactions.length;
@@ -377,9 +396,9 @@ export function RoomManagementView() {
                   </div>
                   <div className="flex flex-wrap gap-2 sm:gap-3">
                     {[
-                      { label: "Floor", value: filterFloor, setter: setFilterFloor, options: ["All", "1", "2", "3", "4"] },
+                      { label: "Floor", value: filterFloor, setter: setFilterFloor, options: ["All", ...FLOOR_OPTIONS] },
                       { label: "Type",  value: filterType,  setter: setFilterType,  options: ["All", ...ROOM_TYPES] },
-                      { label: "Status",value: filterStatus, setter: setFilterStatus, options: ["All", "Available", "Occupied", "Cleaning", "Maintenance"] },
+                      { label: "Status",value: filterStatus, setter: setFilterStatus, options: ["All", ...Object.keys(STATUS_COLORS)] },
                     ].map(({ label, value, setter, options }) => (
                       <div key={label} className="relative min-w-0">
                         <select value={value} onChange={e => setter(e.target.value)}

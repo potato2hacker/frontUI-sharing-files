@@ -24,23 +24,6 @@ import {
   type ERPTransaction,
 } from "../data/erpData";
 
-// ── Charts data ──────────────────────────────
-const revenueExpenseData = [
-  { month: "Oct", revenue: 124500, expenses: 72000, profit: 52500 },
-  { month: "Nov", revenue: 138000, expenses: 78000, profit: 60000 },
-  { month: "Dec", revenue: 182000, expenses: 98000, profit: 84000 },
-  { month: "Jan", revenue: 105000, expenses: 68000, profit: 37000 },
-  { month: "Feb", revenue: 119000, expenses: 71000, profit: 48000 },
-  { month: "Mar", revenue: Math.round(totalIncome), expenses: Math.round(totalExpenses), profit: Math.round(netProfit) },
-];
-
-const cashFlowData = [
-  { week: "W1", inflow: 38000, outflow: 21000 },
-  { week: "W2", inflow: 42000, outflow: 18000 },
-  { week: "W3", inflow: 35000, outflow: 24000 },
-  { week: "W4", inflow: Math.round(totalIncome * 0.27), outflow: Math.round(totalExpenses * 0.29) },
-];
-
 const MODULE_ICONS: Record<SourceModule, React.ReactNode> = {
   "Room Management":  <BedDouble size={14} />,
   "Front Desk":       <ConciergeBell size={14} />,
@@ -52,10 +35,7 @@ const MODULE_ICONS: Record<SourceModule, React.ReactNode> = {
   "General":          <Layers size={14} />,
 };
 
-const ALL_MODULES: SourceModule[] = [
-  "Room Management", "Front Desk", "F&B", "Conference",
-  "Employee Affairs", "Inventory", "Security", "General",
-];
+const ALL_MODULES = Object.keys(MODULE_META) as SourceModule[];
 
 const PIE_COLORS_REV = ["#06b6d4", "#3b82f6", "#10b981", "#6366f1"];
 const PIE_COLORS_EXP = ["#a855f7", "#f59e0b", "#f43f5e", "#64748b"];
@@ -96,6 +76,49 @@ export function AccountingView() {
   const [filterType, setFilterType]     = useState<"All" | "Income" | "Expense">("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [activeTab, setActiveTab]       = useState<"overview" | "breakdown" | "ledger">("overview");
+
+  const revenueExpenseData = useMemo(() => {
+    const monthly = new Map<string, { month: string; revenue: number; expenses: number; profit: number; sort: string }>();
+
+    allERPTransactions.forEach(t => {
+      const date = new Date(t.date);
+      if (Number.isNaN(date.getTime())) return;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = date.toLocaleString("en-US", { month: "short" });
+      const record = monthly.get(monthKey) ?? { month: monthLabel, revenue: 0, expenses: 0, profit: 0, sort: monthKey };
+      if (t.type === "Income") record.revenue += t.amount;
+      if (t.type === "Expense") record.expenses += Math.abs(t.amount);
+      record.profit = record.revenue - record.expenses;
+      monthly.set(monthKey, record);
+    });
+
+    return Array.from(monthly.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, value]) => ({ month: value.month, revenue: value.revenue, expenses: value.expenses, profit: value.profit }));
+  }, [allERPTransactions]);
+
+  const cashFlowData = useMemo(() => {
+    const weekly = new Map<string, { week: string; inflow: number; outflow: number; sort: number }>();
+
+    allERPTransactions.forEach(t => {
+      const date = new Date(t.date);
+      if (Number.isNaN(date.getTime())) return;
+      const day = new Date(date);
+      const offset = (day.getDay() + 6) % 7;
+      day.setDate(day.getDate() - offset);
+      day.setHours(0, 0, 0, 0);
+      const key = day.toISOString().slice(0, 10);
+      const record = weekly.get(key) ?? { week: key, inflow: 0, outflow: 0, sort: day.getTime() };
+      if (t.type === "Income") record.inflow += t.amount;
+      if (t.type === "Expense") record.outflow += Math.abs(t.amount);
+      weekly.set(key, record);
+    });
+
+    return Array.from(weekly.values())
+      .sort((a, b) => a.sort - b.sort)
+      .slice(-4)
+      .map((value, index) => ({ week: `W${index + 1}`, inflow: value.inflow, outflow: value.outflow }));
+  }, [allERPTransactions]);
 
   const filtered = useMemo(() => allERPTransactions.filter(t => {
     if (filterModule !== "All" && t.sourceModule !== filterModule) return false;

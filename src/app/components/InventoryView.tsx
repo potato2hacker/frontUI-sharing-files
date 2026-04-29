@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Package, Search, Bell, AlertTriangle, TrendingDown, TrendingUp,
   Plus, Filter, ChevronDown, ArrowUpRight, ArrowDownRight,
@@ -14,23 +14,14 @@ import {
   inventoryExpenseTransactions,
 } from "../data/erpData";
 
-const categories = [
-  { name: "Toiletries",   total: 42, items: 42,  icon: "🧴", value: 3240,  lowStock: 5 },
-  { name: "Bedding",      total: 18, items: 18,  icon: "🛏️", value: 12400, lowStock: 1 },
-  { name: "F&B Supplies", total: 67, items: 67,  icon: "🍽️", value: 8900,  lowStock: 8 },
-  { name: "Cleaning",     total: 31, items: 31,  icon: "🧹", value: 2100,  lowStock: 4 },
-  { name: "Electronics",  total: 12, items: 12,  icon: "💡", value: 18500, lowStock: 0 },
-  { name: "Office",       total: 25, items: 25,  icon: "📁", value: 960,   lowStock: 2 },
-];
-
-const stockTrendData = [
-  { month: "Oct", inflow: 4200, outflow: 3100 },
-  { month: "Nov", inflow: 3800, outflow: 3600 },
-  { month: "Dec", inflow: 6200, outflow: 5800 },
-  { month: "Jan", inflow: 3200, outflow: 2900 },
-  { month: "Feb", inflow: 4100, outflow: 3400 },
-  { month: "Mar", inflow: 5100, outflow: 4200 },
-];
+const ITEM_CATEGORY_ICONS: Record<string, string> = {
+  Toiletries: "🧴",
+  Bedding: "🛏️",
+  "F&B Supplies": "🍽️",
+  Cleaning: "🧹",
+  Electronics: "💡",
+  Office: "📁",
+};
 
 function StockBadge({ stock, minStock }: { stock: number; minStock: number }) {
   const ratio = stock / minStock;
@@ -42,6 +33,50 @@ function StockBadge({ stock, minStock }: { stock: number; minStock: number }) {
 export function InventoryView() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
+
+  const categories = useMemo(() => {
+    const map = new Map<string, { name: string; total: number; items: number; icon: string; value: number; lowStock: number }>();
+
+    inventoryItems.forEach(item => {
+      const current = map.get(item.category) ?? {
+        name: item.category,
+        total: 0,
+        items: 0,
+        icon: ITEM_CATEGORY_ICONS[item.category] ?? "📦",
+        value: 0,
+        lowStock: 0,
+      };
+
+      current.items += 1;
+      current.total += item.stock;
+      current.value += item.stock * item.cost;
+      if (item.stock < item.minStock) current.lowStock += 1;
+
+      map.set(item.category, current);
+    });
+
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [inventoryItems]);
+
+  const stockTrendData = useMemo(() => {
+    const monthly = new Map<string, { month: string; inflow: number; outflow: number; sort: string }>();
+
+    recentTransactions.forEach(tx => {
+      const date = new Date(tx.date);
+      if (Number.isNaN(date.getTime())) return;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = date.toLocaleString("en-US", { month: "short" });
+      const record = monthly.get(monthKey) ?? { month: monthLabel, inflow: 0, outflow: 0, sort: monthKey };
+      if (tx.type === "IN") record.inflow += tx.qty;
+      if (tx.type === "OUT") record.outflow += tx.qty;
+      monthly.set(monthKey, record);
+    });
+
+    return Array.from(monthly.values())
+      .sort((a, b) => a.sort.localeCompare(b.sort))
+      .slice(-6)
+      .map(value => ({ month: value.month, inflow: value.inflow, outflow: value.outflow }));
+  }, [recentTransactions]);
 
   const filtered = inventoryItems.filter(i =>
     (filterCat === "All" || i.category === filterCat) &&
